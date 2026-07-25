@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grade Tracker</title>
+<style>
+  :root{
+    --bg:#050509; --bg2:#0a0a12; --panel:#0e0e18; --panel2:#14141f; --line:#241a3a;
+    --text:#ece9f5; --muted:#8b85a8;
+    --purple:#a855f7; --purple2:#c084fc; --purpleDim:#6d28d9;
+    --warn:#ffb454; --bad:#ff5d73; --good:#37e0a0;
+    --glow:0 0 18px rgba(168,85,247,.55);
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--text);line-height:1.45;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(168,85,247,.18), transparent 60%),
+      radial-gradient(900px 500px at -10% 20%, rgba(109,40,217,.16), transparent 55%),
+      var(--bg);
+    min-height:100vh;
+  }
+  header{position:sticky;top:0;z-index:30;padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;
+    background:rgba(8,8,15,.75);backdrop-filter:blur(10px)}
+  header h1{margin:0;font-size:20px;letter-spacing:.4px;
+    background:linear-gradient(90deg,#fff,var(--purple2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .headerspacer{flex:1}
+  .overall{font-size:13px;color:var(--muted)}
+  .overall b{color:var(--purple2);font-size:17px;text-shadow:var(--glow)}
+  /* hamburger */
+  .burger{width:42px;height:42px;border-radius:11px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;transition:.15s}
+  .burger:hover{border-color:var(--purple);box-shadow:0 0 14px rgba(168,85,247,.4)}
+  .burger span{display:block;width:20px;height:2px;border-radius:2px;background:var(--purple2);box-shadow:0 0 6px rgba(168,85,247,.6)}
+  /* drawer */
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:.2s;z-index:40}
+  .scrim.open{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;left:0;height:100%;width:260px;z-index:50;transform:translateX(-100%);transition:.22s cubic-bezier(.3,.7,.3,1);
+    background:linear-gradient(180deg,#0c0c16,#070710);border-right:1px solid var(--line);box-shadow:8px 0 40px rgba(0,0,0,.6);padding:18px 14px}
+  .drawer.open{transform:translateX(0)}
+  .drawer h2{margin:6px 8px 16px;font-size:13px;letter-spacing:2px;color:var(--purple2);text-transform:uppercase}
+  .nav a{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;color:var(--text);cursor:pointer;font-size:15px;font-weight:600;margin-bottom:4px;border:1px solid transparent;transition:.15s}
+  .nav a:hover{background:var(--panel2);border-color:var(--line)}
+  .nav a.active{background:linear-gradient(90deg,rgba(168,85,247,.22),rgba(168,85,247,.05));border-color:var(--purpleDim);box-shadow:0 0 16px rgba(168,85,247,.25)}
+  .nav a .ic{font-size:17px;width:22px;text-align:center}
+  .drawer .tools{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:8px}
+
+  main{max-width:1000px;margin:0 auto;padding:22px 20px 60px}
+  .view{display:none} .view.active{display:block}
+  .view-title{font-size:24px;font-weight:800;margin:0 0 4px}
+  .view-sub{color:var(--muted);font-size:14px;margin-bottom:18px}
+
+  .btn{background:linear-gradient(180deg,var(--purple),var(--purpleDim));color:#fff;border:none;padding:9px 15px;border-radius:11px;cursor:pointer;font-size:14px;font-weight:600;
+    box-shadow:var(--glow);transition:.15s}
+  .btn:hover{filter:brightness(1.12);box-shadow:0 0 26px rgba(168,85,247,.8)}
+  .btn.sm{padding:5px 11px;font-size:13px;box-shadow:0 0 12px rgba(168,85,247,.4)}
+  .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line);box-shadow:none}
+  .btn.ghost:hover{border-color:var(--purple);box-shadow:0 0 14px rgba(168,85,247,.35)}
+  .btn.danger{background:transparent;color:var(--bad);border:1px solid var(--line);box-shadow:none}
+  .btn.danger:hover{border-color:var(--bad);box-shadow:0 0 12px rgba(255,93,115,.35)}
+  input,select{background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:10px;font-size:14px;outline:none;transition:.15s}
+  input:focus,select:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(168,85,247,.18)}
+  input::placeholder{color:#5b5570}
+  .card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px;
+    box-shadow:0 0 0 1px rgba(168,85,247,.04), 0 12px 40px rgba(0,0,0,.5)}
+  .classhead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .avgpill{font-size:14px;font-weight:700;padding:5px 13px;border-radius:999px;background:rgba(168,85,247,.08);border:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+  td{padding:6px 8px;border-bottom:1px solid rgba(36,26,58,.5);vertical-align:middle}
+  td input{width:100%}
+  .col-name{width:34%}.col-date{width:16%}.col-weight{width:12%}.col-score{width:14%}.col-x{width:40px}
+  .muted{color:var(--muted)}
+  .addrow{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+  .b-up{background:rgba(168,85,247,.16);color:var(--purple2);border:1px solid var(--line)}
+  .up-item{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;
+    background:linear-gradient(180deg,var(--panel),var(--bg2))}
+  .up-left{display:flex;flex-direction:column}
+  .up-cls{font-size:12px;color:var(--muted)}
+  .up-when{font-size:14px;font-weight:600}
+  .days{font-size:13px;color:var(--warn);font-weight:600}
+  .days.soon{color:var(--bad)} .days.done{color:var(--muted)}
+  .calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:720px){.calc-grid{grid-template-columns:1fr}}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+  .field label{font-size:13px;color:var(--muted)}
+  .result{font-size:15px;padding:12px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);min-height:20px}
+  .result b{font-size:22px}
+  .r-good b{color:var(--good);text-shadow:0 0 14px rgba(55,224,160,.4)}
+  .r-warn b{color:var(--warn);text-shadow:0 0 14px rgba(255,180,84,.4)}
+  .r-bad b{color:var(--bad);text-shadow:0 0 14px rgba(255,93,115,.4)}
+  .empty{color:var(--muted);font-size:14px;padding:8px 0}
+  .hint{font-size:12px;color:var(--muted);margin-top:4px}
+
+  /* previous semesters */
+  .sem-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .sem-name{font-size:19px;font-weight:800;background:transparent;border:none;padding:0;min-width:160px}
+  .sem-name:focus{box-shadow:none}
+  .sem-stats{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .stat{font-size:13px;font-weight:700;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);display:flex;align-items:center;gap:6px}
+  .stat .lab{color:var(--muted);font-weight:600}
+  .abs-input{width:56px;text-align:center;padding:4px 6px}
+  .pf{border:1px solid var(--line);background:var(--panel2);color:var(--muted);font-weight:800;font-size:12px;padding:4px 12px;border-radius:999px;cursor:pointer;letter-spacing:.5px;transition:.15s}
+  .pf.pass{color:var(--good);border-color:rgba(55,224,160,.5);box-shadow:0 0 12px rgba(55,224,160,.3)}
+  .pf.fail{color:var(--bad);border-color:rgba(255,93,115,.5);box-shadow:0 0 12px rgba(255,93,115,.3)}
+  .col-grade{width:120px}.col-pf{width:110px}
+
+  /* sync */
+  .sync-dot{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel2)}
+  .sync-dot:hover{border-color:var(--purple)}
+  .dot{width:9px;height:9px;border-radius:50%;background:#5b5570}
+  .dot.on{background:var(--good);box-shadow:0 0 10px rgba(55,224,160,.8)}
+  .dot.off{background:#5b5570}
+  .dot.busy{background:var(--purple2);box-shadow:0 0 10px rgba(168,85,247,.8);animation:pulse 1s infinite}
+  .dot.err{background:var(--bad);box-shadow:0 0 10px rgba(255,93,115,.8)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .steps{counter-reset:s;margin:0;padding:0;list-style:none}
+  .steps li{position:relative;padding:10px 0 10px 40px;border-bottom:1px solid rgba(36,26,58,.5);font-size:14px;color:var(--text)}
+  .steps li:before{counter-increment:s;content:counter(s);position:absolute;left:0;top:9px;width:26px;height:26px;border-radius:50%;
+    background:linear-gradient(180deg,var(--purple),var(--purpleDim));color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;box-shadow:var(--glow)}
+  .steps code{background:var(--panel2);border:1px solid var(--line);padding:1px 6px;border-radius:6px;font-size:13px}
+  .statusline{font-size:13px;margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <button class="burger" onclick="toggleMenu()" aria-label="Menu"><span></span><span></span><span></span></button>
+  <h1 id="hdrTitle">Grade Tracker</h1>
+  <div class="headerspacer"></div>
+  <div class="overall" id="hdrOverall"></div>
+  <div class="sync-dot" onclick="showView('sync')" title="Cloud sync"><span class="dot" id="syncDot"></span><span id="syncLabel">Local</span></div>
+</header>
+
+<div class="scrim" id="scrim" onclick="toggleMenu(false)"></div>
+<nav class="drawer" id="drawer">
+  <h2>Menu</h2>
+  <div class="nav" id="nav">
+    <a data-view="current" onclick="showView('current')"><span class="ic">📚</span> Current Semester</a>
+    <a data-view="upcoming" onclick="showView('upcoming')"><span class="ic">🗓️</span> Upcoming Exams</a>
+    <a data-view="calc" onclick="showView('calc')"><span class="ic">🎯</span> Grade Calculator</a>
+    <a data-view="previous" onclick="showView('previous')"><span class="ic">🏆</span> Previous Semesters</a>
+    <a data-view="sync" onclick="showView('sync')"><span class="ic">☁️</span> Cloud Sync</a>
+  </div>
+  <div class="tools">
+    <button class="btn ghost sm" onclick="exportData()">Export backup</button>
+    <button class="btn ghost sm" onclick="document.getElementById('importFile').click()">Import backup</button>
+    <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
+  </div>
+</nav>
+
+<main>
+  <!-- CURRENT SEMESTER -->
+  <section class="view" id="view-current">
+    <h1 class="view-title">Current Semester</h1>
+    <div class="view-sub">Live weighted averages. Leave a score blank to mark an exam as upcoming.</div>
+    <div style="margin-bottom:14px"><button class="btn" onclick="addClass()">+ Add class</button></div>
+    <div id="classes"></div>
+  </section>
+
+  <!-- UPCOMING -->
+  <section class="view" id="view-upcoming">
+    <h1 class="view-title">Upcoming Exams</h1>
+    <div class="view-sub">Every ungraded exam across your classes, soonest first.</div>
+    <div id="upcoming"></div>
+  </section>
+
+  <!-- CALCULATOR -->
+  <section class="view" id="view-calc">
+    <h1 class="view-title">Grade Calculator</h1>
+    <div class="view-sub">Work out what you need to hit your goal average.</div>
+    <div class="card">
+      <div class="field" style="max-width:340px">
+        <label>Class</label>
+        <select id="calcClass" onchange="renderCalc()"></select>
+      </div>
+      <div id="calcCurrent" class="hint"></div>
+      <div class="calc-grid" style="margin-top:14px">
+        <div>
+          <h3 style="margin:0 0 10px;font-size:15px">Need a score on one exam</h3>
+          <div class="field"><label>Which upcoming exam?</label><select id="calcExam"></select></div>
+          <div class="field"><label>Goal average (1–6)</label><input type="number" step="0.05" min="1" max="6" id="calcGoal1" placeholder="e.g. 5.5" oninput="renderCalc()"></div>
+          <div class="result" id="calcRes1">Pick an exam and enter a goal.</div>
+        </div>
+        <div>
+          <h3 style="margin:0 0 10px;font-size:15px">Average needed across all remaining exams</h3>
+          <div class="field"><label>Goal average (1–6)</label><input type="number" step="0.05" min="1" max="6" id="calcGoal2" placeholder="e.g. 5.5" oninput="renderCalc()"></div>
+          <div class="result" id="calcRes2">Enter a goal average.</div>
+          <div class="hint">Assumes you score the same on every remaining exam, weighted by each exam's weight.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PREVIOUS SEMESTERS -->
+  <section class="view" id="view-previous">
+    <h1 class="view-title">Previous Semesters</h1>
+    <div class="view-sub">Your own record of past semesters — classes, grades, pass/fail, and absences.</div>
+    <div style="margin-bottom:14px"><button class="btn" onclick="addSemester()">+ Add semester</button></div>
+    <div id="semesters"></div>
+  </section>
+
+  <!-- CLOUD SYNC -->
+  <section class="view" id="view-sync">
+    <h1 class="view-title">Cloud Sync</h1>
+    <div class="view-sub">Store your grades in a private GitHub Gist so they follow you to any device.</div>
+
+    <div class="card">
+      <div class="classhead" style="margin-bottom:6px">
+        <b style="font-size:16px">Status</b>
+        <span class="sync-dot"><span class="dot" id="syncDot2"></span><span id="syncStatus2">Not connected</span></span>
+      </div>
+      <div class="statusline muted" id="syncMsg">Your data is currently saved only in this browser.</div>
+    </div>
+
+    <div class="card">
+      <b style="font-size:16px">Connect</b>
+      <div class="field" style="margin-top:12px"><label>GitHub personal access token</label>
+        <input type="password" id="inpToken" placeholder="github_pat_… or ghp_…" autocomplete="off"></div>
+      <div class="field"><label>Gist ID</label>
+        <input type="text" id="inpGist" placeholder="the id from your gist URL" autocomplete="off"></div>
+      <div class="addrow">
+        <button class="btn" onclick="connectSync()">Connect &amp; sync</button>
+        <button class="btn ghost" onclick="pullNow()">Pull from cloud</button>
+        <button class="btn ghost" onclick="pushNow()">Push to cloud</button>
+        <button class="btn danger" onclick="disconnectSync()">Disconnect</button>
+      </div>
+      <div class="hint">Token and Gist ID are stored only in this browser. Nothing is sent anywhere except GitHub.</div>
+    </div>
+
+    <div class="card">
+      <b style="font-size:16px">First-time setup</b>
+      <ol class="steps" style="margin-top:10px">
+        <li>Go to <code>gist.github.com</code>, put anything in a file named <code>grade-tracker.json</code> (e.g. <code>{}</code>), and click <b>Create secret gist</b>.</li>
+        <li>Copy the <b>Gist ID</b> — it's the long code at the end of the gist's URL — and paste it above.</li>
+        <li>Go to <code>github.com/settings/tokens</code> → <b>Fine-grained tokens</b> → <b>Generate new token</b>. Under <b>Account permissions</b> set <b>Gists → Read and write</b>. Generate it and copy the token.</li>
+        <li>Paste the token above and hit <b>Connect &amp; sync</b>. On any new device, just paste the same two values once.</li>
+      </ol>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ---------- Data ---------- */
+const KEY = "gradeTracker.v2";
+let data = load();
+let currentView = "current";
+
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem(KEY));
+    if(d && d.classes){ if(!d.semesters) d.semesters=[]; d.semesters.forEach(migrateSem); return d; }
+  }catch(e){}
+  // try migrating from v1
+  try{
+    const old = JSON.parse(localStorage.getItem("gradeTracker.v1"));
+    if(old && old.classes){ old.semesters = (old.semesters||[]).map(s=>migrateSem(s)); return old; }
+  }catch(e){}
+  return {
+    classes: [ demoClass() ],
+    semesters: [ demoSemester() ]
+  };
+}
+function migrateSem(s){
+  if(!s.classes){
+    s.classes = [];
+    if(s.avg!==undefined && s.avg!=="") s.classes.push({id:uid(), name:"Overall", grade:String(s.avg), passed:Number(s.avg)>=60});
+    delete s.avg;
+  }
+  if(s.absences===undefined) s.absences="";
+  return s;
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(data)); schedulePush(); }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function demoClass(){
+  return { id:uid(), name:"Example Class", items:[
+    {id:uid(), name:"Quiz 1", date:"", weight:1, score:5.5},
+    {id:uid(), name:"Midterm", date:"", weight:2, score:4.75},
+    {id:uid(), name:"Final Exam", date:"", weight:3, score:null},
+  ]};
+}
+function demoSemester(){
+  return { id:uid(), name:"Fall 2025", absences:4, classes:[
+    {id:uid(), name:"Calculus I", grade:"5.5", passed:true},
+    {id:uid(), name:"Chemistry", grade:"4.0", passed:true},
+    {id:uid(), name:"History", grade:"5.75", passed:true},
+  ]};
+}
+
+/* ---------- Math ---------- */
+function graded(items){ return items.filter(i=>i.score!==null && i.score!=="" && !isNaN(i.score)); }
+function ungraded(items){ return items.filter(i=>i.score===null || i.score===""); }
+function weightedAvg(items){
+  const g = graded(items); let sw=0, sws=0;
+  g.forEach(i=>{ const w=Number(i.weight)||0; sw+=w; sws+=w*Number(i.score); });
+  return sw>0 ? sws/sw : null;
+}
+function overallAvg(){
+  const avgs = data.classes.map(c=>weightedAvg(c.items)).filter(a=>a!==null);
+  if(!avgs.length) return null;
+  return avgs.reduce((a,b)=>a+b,0)/avgs.length;
+}
+
+/* ---------- Menu / views ---------- */
+function toggleMenu(force){
+  const d=document.getElementById("drawer"), s=document.getElementById("scrim");
+  const open = force===undefined ? !d.classList.contains("open") : force;
+  d.classList.toggle("open", open); s.classList.toggle("open", open);
+}
+const VIEW_TITLES={current:"Current Semester",upcoming:"Upcoming Exams",calc:"Grade Calculator",previous:"Previous Semesters",sync:"Cloud Sync"};
+function showView(name){
+  currentView=name;
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.getElementById("view-"+name).classList.add("active");
+  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active",a.dataset.view===name));
+  document.getElementById("hdrTitle").textContent=VIEW_TITLES[name];
+  toggleMenu(false);
+  window.scrollTo(0,0);
+}
+
+/* ---------- Current-semester CRUD ---------- */
+function addClass(){ data.classes.push({id:uid(), name:"New Class", items:[]}); save(); renderClasses(); renderCalcClasses(); renderCalc(); }
+function removeClass(id){ if(confirm("Delete this class and all its grades?")){ data.classes=data.classes.filter(c=>c.id!==id); save(); render(); } }
+function addItem(cid){ const c=data.classes.find(x=>x.id===cid); c.items.push({id:uid(), name:"", date:"", weight:1, score:null}); save(); renderClasses(); }
+function removeItem(cid,iid){ const c=data.classes.find(x=>x.id===cid); c.items=c.items.filter(i=>i.id!==iid); save(); renderClasses(); renderUpcoming(); renderCalc(); }
+function setClassName(cid,v){ data.classes.find(x=>x.id===cid).name=v; save(); renderCalcClasses(); renderUpcoming(); renderOverall(); }
+function setField(cid,iid,field,v){
+  const it=data.classes.find(x=>x.id===cid).items.find(i=>i.id===iid);
+  if(field==="score") it.score = (v===""?null:Number(v));
+  else if(field==="weight") it.weight = (v===""?1:Number(v));
+  else it[field]=v;
+  save(); renderClassAvg(cid); renderOverall(); renderUpcoming(); renderCalc();
+}
+
+/* ---------- Previous-semester CRUD ---------- */
+function addSemester(){ data.semesters.unshift({id:uid(), name:"New Semester", absences:"", classes:[]}); save(); renderSemesters(); }
+function removeSemester(id){ if(confirm("Delete this semester?")){ data.semesters=data.semesters.filter(s=>s.id!==id); save(); renderSemesters(); } }
+function setSem(id,field,v){ const s=data.semesters.find(x=>x.id===id); s[field]= field==="absences"?(v===""?"":Number(v)):v; save(); if(field==="absences") renderSemStats(id); }
+function addSemClass(sid){ data.semesters.find(s=>s.id===sid).classes.push({id:uid(), name:"", grade:"", passed:true}); save(); renderSemesters(); }
+function removeSemClass(sid,cid){ const s=data.semesters.find(x=>x.id===sid); s.classes=s.classes.filter(c=>c.id!==cid); save(); renderSemesters(); }
+function setSemClass(sid,cid,field,v){ const c=data.semesters.find(s=>s.id===sid).classes.find(x=>x.id===cid); c[field]=v; save(); if(field==="grade") renderSemStats(sid); }
+function togglePass(sid,cid){ const c=data.semesters.find(s=>s.id===sid).classes.find(x=>x.id===cid); c.passed=!c.passed; save(); renderSemesters(); }
+
+/* ---------- Rendering ---------- */
+function fmt(n){ return n===null||n===undefined?"—":(Math.round(n*100)/100).toFixed(2); }
+function avgColor(a){ if(a===null) return "var(--muted)"; if(a>=5) return "var(--good)"; if(a>=4) return "var(--warn)"; return "var(--bad)"; }
+
+function render(){ renderClasses(); renderUpcoming(); renderSemesters(); renderCalcClasses(); renderCalc(); renderOverall(); }
+
+function renderOverall(){
+  const o=overallAvg();
+  document.getElementById("hdrOverall").innerHTML = o===null?"":`Current avg: <b>${fmt(o)}</b>`;
+}
+function renderClassAvg(cid){
+  const c=data.classes.find(x=>x.id===cid); if(!c) return;
+  const el=document.getElementById("avg-"+cid); if(!el) return;
+  const a=weightedAvg(c.items);
+  el.textContent = a===null?"No grades yet":fmt(a); el.style.color = avgColor(a);
+}
+function renderClasses(){
+  const wrap=document.getElementById("classes");
+  if(!data.classes.length){ wrap.innerHTML='<div class="empty">No classes yet. Click “+ Add class”.</div>'; return; }
+  wrap.innerHTML = data.classes.map(c=>{
+    const rows = c.items.map(i=>`
+      <tr>
+        <td class="col-name"><input value="${esc(i.name)}" placeholder="Exam / assignment" oninput="setField('${c.id}','${i.id}','name',this.value)"></td>
+        <td class="col-date"><input type="date" value="${i.date||''}" oninput="setField('${c.id}','${i.id}','date',this.value)"></td>
+        <td class="col-weight"><input type="number" step="0.1" min="0" value="${i.weight}" oninput="setField('${c.id}','${i.id}','weight',this.value)"></td>
+        <td class="col-score"><input type="number" step="0.05" min="1" max="6" value="${i.score===null?'':i.score}" placeholder="—" oninput="setField('${c.id}','${i.id}','score',this.value)"></td>
+        <td class="col-x"><button class="btn danger sm" onclick="removeItem('${c.id}','${i.id}')">✕</button></td>
+      </tr>`).join("");
+    const a=weightedAvg(c.items);
+    return `<div class="card">
+      <div class="classhead">
+        <input value="${esc(c.name)}" oninput="setClassName('${c.id}',this.value)" style="font-size:18px;font-weight:700;min-width:200px;background:transparent;border:none">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="avgpill" id="avg-${c.id}" style="color:${avgColor(a)}">${a===null?'No grades yet':fmt(a)}</span>
+          <button class="btn danger sm" onclick="removeClass('${c.id}')">Delete</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Date</th><th>Weight</th><th>Grade</th><th></th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="5" class="empty">No exams yet.</td></tr>'}</tbody>
+      </table>
+      <div class="addrow"><button class="btn ghost sm" onclick="addItem('${c.id}')">+ Add exam / assignment</button>
+      <span class="hint">Grades on the Swiss 1–6 scale (4.0 = pass). Blank = upcoming. Weight 1 = normal, 2 = double, 0.5 = half.</span></div>
+    </div>`;
+  }).join("");
+}
+
+function renderUpcoming(){
+  const wrap=document.getElementById("upcoming");
+  const list=[];
+  data.classes.forEach(c=>{ ungraded(c.items).forEach(i=>{ if((i.name&&i.name.trim())||i.date) list.push({cls:c.name, ...i}); }); });
+  list.sort((a,b)=>{ if(a.date&&b.date) return a.date.localeCompare(b.date); if(a.date) return -1; if(b.date) return 1; return 0; });
+  if(!list.length){ wrap.innerHTML='<div class="empty">Nothing upcoming. Add an exam with a blank score to track it here.</div>'; return; }
+  const today=new Date(); today.setHours(0,0,0,0);
+  wrap.innerHTML=list.map(i=>{
+    let daysHtml='<span class="days done">no date</span>';
+    if(i.date){
+      const d=new Date(i.date+"T00:00:00"); const diff=Math.round((d-today)/86400000);
+      let cls="days", txt;
+      if(diff<0){ txt=`${-diff}d ago`; cls+=" done"; }
+      else if(diff===0){ txt="today"; cls+=" soon"; }
+      else if(diff<=7){ txt=`in ${diff}d`; cls+=" soon"; }
+      else txt=`in ${diff}d`;
+      daysHtml=`<span class="${cls}">${txt}</span>`;
+    }
+    return `<div class="up-item">
+      <div class="up-left"><span class="up-cls">${esc(i.cls)}</span>
+      <span class="up-when">${esc(i.name)||'(unnamed)'} <span class="badge b-up">weight ${i.weight}</span></span></div>
+      <div style="text-align:right"><div>${i.date?fmtDate(i.date):''}</div>${daysHtml}</div>
+    </div>`;
+  }).join("");
+}
+function fmtDate(s){ const d=new Date(s+"T00:00:00"); return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }
+
+/* ---------- Semesters ---------- */
+function semSummary(s){
+  const total=s.classes.length;
+  const passed=s.classes.filter(c=>c.passed).length;
+  const nums=s.classes.map(c=>parseFloat(c.grade)).filter(n=>!isNaN(n));
+  const avg=nums.length? nums.reduce((a,b)=>a+b,0)/nums.length : null;
+  return {total,passed,avg};
+}
+function renderSemStats(sid){
+  const s=data.semesters.find(x=>x.id===sid); if(!s) return;
+  const el=document.getElementById("semstats-"+sid); if(!el) return;
+  const {total,passed,avg}=semSummary(s);
+  el.innerHTML=semStatsHTML(s,total,passed,avg);
+}
+function semStatsHTML(s,total,passed,avg){
+  const allPass = total>0 && passed===total;
+  return `
+    <span class="stat"><span class="lab">Passed</span> <b style="color:${allPass?'var(--good)':(passed<total?'var(--warn)':'var(--muted)')}">${passed}/${total}</b></span>
+    ${avg!==null?`<span class="stat"><span class="lab">Avg</span> <b style="color:${avgColor(avg)}">${fmt(avg)}</b></span>`:''}
+    <span class="stat"><span class="lab">Absences</span>
+      <input class="abs-input" type="number" min="0" value="${s.absences===''?'':s.absences}" placeholder="0" oninput="setSem('${s.id}','absences',this.value)"></span>`;
+}
+function renderSemesters(){
+  const wrap=document.getElementById("semesters");
+  if(!data.semesters.length){ wrap.innerHTML='<div class="empty">No semesters yet. Click “+ Add semester”.</div>'; return; }
+  wrap.innerHTML=data.semesters.map(s=>{
+    const {total,passed,avg}=semSummary(s);
+    const rows=s.classes.map(c=>`
+      <tr>
+        <td class="col-name"><input value="${esc(c.name)}" placeholder="Class name" oninput="setSemClass('${s.id}','${c.id}','name',this.value)"></td>
+        <td class="col-grade"><input value="${esc(c.grade)}" placeholder="e.g. 5.5" oninput="setSemClass('${s.id}','${c.id}','grade',this.value)"></td>
+        <td class="col-pf"><button class="pf ${c.passed?'pass':'fail'}" onclick="togglePass('${s.id}','${c.id}')">${c.passed?'PASSED':'FAILED'}</button></td>
+        <td class="col-x"><button class="btn danger sm" onclick="removeSemClass('${s.id}','${c.id}')">✕</button></td>
+      </tr>`).join("");
+    return `<div class="card">
+      <div class="sem-top">
+        <input class="sem-name" value="${esc(s.name)}" placeholder="Semester name" oninput="setSem('${s.id}','name',this.value)">
+        <div class="sem-stats" id="semstats-${s.id}">${semStatsHTML(s,total,passed,avg)}</div>
+      </div>
+      <table>
+        <thead><tr><th>Class</th><th>Grade</th><th>Result</th><th></th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="4" class="empty">No classes recorded.</td></tr>'}</tbody>
+      </table>
+      <div class="addrow">
+        <button class="btn ghost sm" onclick="addSemClass('${s.id}')">+ Add class</button>
+        <button class="btn danger sm" onclick="removeSemester('${s.id}')">Delete semester</button>
+        <span class="hint">Grade on the 1–6 scale. Tap the result pill to flip pass/fail.</span>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* ---------- Calculator ---------- */
+function renderCalcClasses(){
+  const sel=document.getElementById("calcClass"); const prev=sel.value;
+  sel.innerHTML=data.classes.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  if([...sel.options].some(o=>o.value===prev)) sel.value=prev;
+}
+function renderCalc(){
+  const cid=document.getElementById("calcClass").value;
+  const c=data.classes.find(x=>x.id===cid);
+  const examSel=document.getElementById("calcExam");
+  const cur=document.getElementById("calcCurrent");
+  if(!c){ cur.textContent=""; examSel.innerHTML=""; return; }
+  const g=graded(c.items), u=ungraded(c.items);
+  let Wg=0,G=0; g.forEach(i=>{const w=Number(i.weight)||0; Wg+=w; G+=w*Number(i.score);});
+  const curAvg=weightedAvg(c.items);
+  cur.innerHTML = `Current weighted average: <b style="color:${avgColor(curAvg)}">${curAvg===null?'—':fmt(curAvg)}</b> &nbsp;·&nbsp; ${g.length} graded, ${u.length} remaining.`;
+  const prev=examSel.value;
+  const uNamed=u.filter(i=>(i.name&&i.name.trim())||i.date);
+  examSel.innerHTML = uNamed.length? uNamed.map(i=>`<option value="${i.id}">${esc(i.name)||'(unnamed)'} · weight ${i.weight}</option>`).join("")
+                                   : `<option value="">No upcoming exams</option>`;
+  if([...examSel.options].some(o=>o.value===prev)) examSel.value=prev;
+
+  const res1=document.getElementById("calcRes1");
+  const goal1=parseFloat(document.getElementById("calcGoal1").value);
+  const exam=uNamed.find(i=>i.id===examSel.value);
+  if(!exam){ res1.className="result"; res1.textContent="Add an upcoming exam (blank score) to use this."; }
+  else if(isNaN(goal1)){ res1.className="result"; res1.textContent="Enter your goal average."; }
+  else{
+    const We=Number(exam.weight)||0;
+    if(We<=0){ res1.className="result r-warn"; res1.innerHTML="This exam has weight 0 — it can't change your average."; }
+    else{
+      const need=(goal1*(Wg+We)-G)/We;
+      res1.className="result "+(need>6?"r-bad":need<=1?"r-good":need>5.5?"r-warn":"r-good");
+      let extra = need>6 ? " — not reachable with this exam alone (the highest grade is 6)." : need<=1 ? " — you've already secured your goal! ✦" : "";
+      res1.innerHTML=`You need <b>${fmt(need)}</b> on <b>${esc(exam.name)||'this exam'}</b> to reach a ${fmt(goal1)} average.${extra}`;
+    }
+  }
+  const res2=document.getElementById("calcRes2");
+  const goal2=parseFloat(document.getElementById("calcGoal2").value);
+  let Wr=0; u.forEach(i=>{Wr+=Number(i.weight)||0;});
+  if(isNaN(goal2)){ res2.className="result"; res2.textContent="Enter your goal average."; }
+  else if(Wr<=0){ res2.className="result r-warn"; res2.textContent="No remaining exams with weight to calculate."; }
+  else{
+    const need=(goal2*(Wg+Wr)-G)/Wr;
+    res2.className="result "+(need>6?"r-bad":need<=1?"r-good":need>5.5?"r-warn":"r-good");
+    let extra = need>6 ? " — not reachable (the highest grade is 6 on every exam)." : need<=1 ? " — already secured! ✦" : "";
+    res2.innerHTML=`You need to average <b>${fmt(need)}</b> across your ${u.length} remaining exam${u.length!==1?'s':''} to reach a ${fmt(goal2)} average.${extra}`;
+  }
+}
+
+/* ---------- Import/Export ---------- */
+function exportData(){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="grade-tracker-backup.json"; a.click();
+}
+function importData(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.classes){ if(!d.semesters)d.semesters=[]; d.semesters.forEach(migrateSem); data=d; save(); render(); } else alert("Invalid file."); }catch(err){ alert("Could not read file."); } };
+  r.readAsText(f); e.target.value="";
+}
+
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+/* ---------- Cloud sync (GitHub Gist) ---------- */
+const SYNC_KEY="gradeTracker.sync";
+const GIST_FILE="grade-tracker.json";
+let sync = loadSync();          // {token, gist}
+let pushTimer=null, pushing=false;
+
+function loadSync(){ try{ return JSON.parse(localStorage.getItem(SYNC_KEY))||{}; }catch(e){ return {}; } }
+function saveSync(){ localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); }
+function isConnected(){ return !!(sync.token && sync.gist); }
+
+function setSyncStatus(state,msg){
+  // state: off | on | busy | err
+  const label = {off:"Local",on:"Synced",busy:"Syncing…",err:"Sync error"}[state];
+  ["syncDot","syncDot2"].forEach(id=>{ const el=document.getElementById(id); if(el) el.className="dot "+state; });
+  const l=document.getElementById("syncLabel"); if(l) l.textContent=label;
+  const s2=document.getElementById("syncStatus2"); if(s2) s2.textContent = state==="on"?"Connected":state==="busy"?"Working…":state==="err"?"Error":"Not connected";
+  const m=document.getElementById("syncMsg"); if(m && msg) m.textContent=msg;
+}
+
+async function gistFetch(method,body){
+  const res=await fetch("https://api.github.com/gists/"+encodeURIComponent(sync.gist),{
+    method, headers:{ "Authorization":"Bearer "+sync.token, "Accept":"application/vnd.github+json" },
+    body: body?JSON.stringify(body):undefined
+  });
+  if(res.status===401) throw new Error("Bad token (401). Check the token has Gists read/write.");
+  if(res.status===404) throw new Error("Gist not found (404). Check the Gist ID.");
+  if(!res.ok) throw new Error("GitHub error "+res.status);
+  return res.json();
+}
+
+async function pullNow(silent){
+  if(!isConnected()){ if(!silent) alert("Connect first (enter token + Gist ID)."); return; }
+  setSyncStatus("busy","Pulling your data from the cloud…");
+  try{
+    const g=await gistFetch("GET");
+    const file = (g.files&&g.files[GIST_FILE]) || (g.files&&Object.values(g.files)[0]);
+    if(file&&file.content){
+      let payload=file.content;
+      if(file.truncated&&file.raw_url){ payload=await (await fetch(file.raw_url)).text(); }
+      const d=JSON.parse(payload);
+      if(d && d.classes){ if(!d.semesters)d.semesters=[]; d.semesters.forEach(migrateSem); data=d; localStorage.setItem(KEY,JSON.stringify(data)); render(); }
+    }
+    sync.last=Date.now(); saveSync();
+    setSyncStatus("on","Up to date. Last synced "+new Date().toLocaleTimeString()+".");
+  }catch(err){ setSyncStatus("err",err.message); }
+}
+
+async function pushNow(silent){
+  if(!isConnected()){ if(!silent) alert("Connect first (enter token + Gist ID)."); return; }
+  if(pushing){ return; }
+  pushing=true; setSyncStatus("busy","Saving to the cloud…");
+  try{
+    await gistFetch("PATCH",{ files:{ [GIST_FILE]:{ content: JSON.stringify(data,null,2) } } });
+    sync.last=Date.now(); saveSync();
+    setSyncStatus("on","Saved. Last synced "+new Date().toLocaleTimeString()+".");
+  }catch(err){ setSyncStatus("err",err.message); }
+  finally{ pushing=false; }
+}
+
+function schedulePush(){
+  if(!isConnected()) return;
+  setSyncStatus("busy","Changes pending…");
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(()=>pushNow(true), 1400);
+}
+
+async function connectSync(){
+  const token=document.getElementById("inpToken").value.trim();
+  const gist=document.getElementById("inpGist").value.trim();
+  if(!token||!gist){ alert("Enter both the token and the Gist ID."); return; }
+  sync.token=token; sync.gist=gist; saveSync();
+  // pull first so cloud data wins on a fresh device
+  await pullNow(true);
+  if(!document.getElementById("syncDot2").classList.contains("err")){
+    // if the gist was empty/new, push our current data up
+    await pushNow(true);
+  }
+  fillSyncInputs();
+}
+function disconnectSync(){
+  if(!confirm("Disconnect cloud sync on this device? Your data stays saved locally.")) return;
+  sync={}; saveSync(); setSyncStatus("off","Disconnected. Data is saved only in this browser."); fillSyncInputs();
+}
+function fillSyncInputs(){
+  const t=document.getElementById("inpToken"), g=document.getElementById("inpGist");
+  if(t) t.value = sync.token||""; if(g) g.value = sync.gist||"";
+}
+
+/* ---------- Init ---------- */
+render();
+fillSyncInputs();
+if(isConnected()){ setSyncStatus("on","Connected."); pullNow(true); }
+else setSyncStatus("off","Your data is currently saved only in this browser.");
+showView("current");
+</script>
+</body>
+</html>
