@@ -10,8 +10,6 @@ import Calculator from "./views/Calculator";
 import PreviousSemesters from "./views/PreviousSemesters";
 import CloudSync from "./views/CloudSync";
 
-const LANDING_KEY = "gt_seen_landing";
-
 const VIEWS = {
   current: CurrentSemester,
   upcoming: Upcoming,
@@ -21,7 +19,7 @@ const VIEWS = {
 };
 
 function AppShell() {
-  const [showLanding, setShowLanding] = useState(() => !localStorage.getItem(LANDING_KEY));
+  const [showLanding, setShowLanding] = useState(true);
   const [view, setView] = useState("current");
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -31,10 +29,7 @@ function AppShell() {
     window.scrollTo(0, 0);
   };
 
-  const enterApp = () => {
-    localStorage.setItem(LANDING_KEY, "1");
-    setShowLanding(false);
-  };
+  const enterApp = () => setShowLanding(false);
 
   if (showLanding) {
     return (
