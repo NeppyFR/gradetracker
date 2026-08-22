@@ -114,3 +114,24 @@ td input{width:100%}
   background:linear-gradient(180deg,var(--purple),var(--purpleDim));color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;box-shadow:var(--glow)}
 .steps code{background:var(--panel2);border:1px solid var(--line);padding:1px 6px;border-radius:6px;font-size:13px}
 .statusline{font-size:13px;margin-top:10px}
+
+/* landing */
+.landing{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:60px 20px;overflow:hidden;text-align:center}
+.landing-blob{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;opacity:.55}
+.landing-blob-a{width:520px;height:520px;top:-160px;right:-140px;background:radial-gradient(circle,rgba(168,85,247,.5),transparent 70%)}
+.landing-blob-b{width:420px;height:420px;bottom:-180px;left:-120px;background:radial-gradient(circle,rgba(109,40,217,.45),transparent 70%)}
+.landing-hero{position:relative;z-index:1;max-width:640px;display:flex;flex-direction:column;align-items:center}
+.landing-kicker{font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--purple2);margin-bottom:18px;
+  text-shadow:0 0 14px rgba(168,85,247,.5)}
+.landing-title{font-size:44px;line-height:1.15;font-weight:800;margin:0 0 18px;
+  background:linear-gradient(135deg,#fff,var(--purple2) 65%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.landing-sub{color:var(--muted);font-size:17px;max-width:480px;margin:0 0 32px}
+.landing-cta{font-size:16px;padding:14px 30px;border-radius:14px}
+.landing-features{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:900px;width:100%;margin-top:56px}
+@media(max-width:760px){.landing-title{font-size:32px}.landing-features{grid-template-columns:1fr}}
+.feature-card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:var(--radius);
+  padding:22px 18px;box-shadow:0 0 0 1px rgba(168,85,247,.04),0 12px 40px rgba(0,0,0,.5);text-align:left}
+.feature-icon{font-size:26px;margin-bottom:10px}
+.feature-title{font-size:16px;font-weight:700;margin-bottom:6px}
+.feature-desc{font-size:13.5px;color:var(--muted);line-height:1.5}

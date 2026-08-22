@@ -3,11 +3,14 @@ import { useState } from "react";
 import Header from "./components/Header";
 import Drawer from "./components/Drawer";
 import { DataProvider } from "./context/DataContext";
+import Landing from "./views/Landing";
 import CurrentSemester from "./views/CurrentSemester";
 import Upcoming from "./views/Upcoming";
 import Calculator from "./views/Calculator";
 import PreviousSemesters from "./views/PreviousSemesters";
 import CloudSync from "./views/CloudSync";
+
+const LANDING_KEY = "gt_seen_landing";
 
 const VIEWS = {
   current: CurrentSemester,
@@ -18,6 +21,7 @@ const VIEWS = {
 };
 
 function AppShell() {
+  const [showLanding, setShowLanding] = useState(() => !localStorage.getItem(LANDING_KEY));
   const [view, setView] = useState("current");
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -26,6 +30,21 @@ function AppShell() {
     setMenuOpen(false);
     window.scrollTo(0, 0);
   };
+
+  const enterApp = () => {
+    localStorage.setItem(LANDING_KEY, "1");
+    setShowLanding(false);
+  };
+
+  if (showLanding) {
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div key="landing" exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+          <Landing onEnter={enterApp} />
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
 
   const ActiveView = VIEWS[view];
 
