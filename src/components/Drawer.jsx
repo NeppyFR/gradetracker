@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useData } from "../context/DataContext";
 
 const NAV_ITEMS = [
+  { view: "home", icon: "🏠", label: "Home" },
   { view: "current", icon: "📚", label: "Current Semester" },
   { view: "upcoming", icon: "🗓️", label: "Upcoming Exams" },
   { view: "calc", icon: "🎯", label: "Grade Calculator" },

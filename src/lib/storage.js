@@ -1,3 +1,5 @@
+import { defaultSchedule, ensureSchedule } from "./schedule";
+
 export const KEY = "gradeTracker.v2";
 
 export function uid() {
@@ -41,29 +43,30 @@ export function migrateSem(s) {
   return s;
 }
 
+export function migrateData(d) {
+  if (!d.semesters) d.semesters = [];
+  d.semesters.forEach(migrateSem);
+  ensureSchedule(d);
+  return d;
+}
+
 export function loadData() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY));
-    if (d && d.classes) {
-      if (!d.semesters) d.semesters = [];
-      d.semesters.forEach(migrateSem);
-      return d;
-    }
+    if (d && d.classes) return migrateData(d);
   } catch (e) {
     /* ignore */
   }
   try {
     const old = JSON.parse(localStorage.getItem("gradeTracker.v1"));
-    if (old && old.classes) {
-      old.semesters = (old.semesters || []).map((s) => migrateSem(s));
-      return old;
-    }
+    if (old && old.classes) return migrateData(old);
   } catch (e) {
     /* ignore */
   }
   return {
     classes: [demoClass()],
     semesters: [demoSemester()],
+    schedule: defaultSchedule(),
   };
 }
 

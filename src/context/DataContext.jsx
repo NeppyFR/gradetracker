@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { loadData, saveData, uid, migrateSem } from "../lib/storage";
+import { loadData, saveData, uid, migrateData } from "../lib/storage";
+import { defaultSchedule } from "../lib/schedule";
 import { gistFetch, GIST_FILE, isConnected, loadSync, saveSync } from "../lib/sync";
 
 const DataContext = createContext(null);
@@ -82,11 +83,7 @@ export function DataProvider({ children }) {
           payload = await (await fetch(file.raw_url)).text();
         }
         const d = JSON.parse(payload);
-        if (d && d.classes) {
-          if (!d.semesters) d.semesters = [];
-          d.semesters.forEach(migrateSem);
-          setData(d);
-        }
+        if (d && d.classes) setData(migrateData(d));
       }
       const next = { ...s, last: Date.now() };
       setSync(next);
@@ -229,6 +226,66 @@ export function DataProvider({ children }) {
     }));
   }, []);
 
+  /* ---------- School schedule ---------- */
+  const setDaySubject = useCallback((dayKey, periodIndex, value) => {
+    setData((d) => ({
+      ...d,
+      schedule: {
+        ...d.schedule,
+        days: {
+          ...d.schedule.days,
+          [dayKey]: d.schedule.days[dayKey].map((s, i) => (i === periodIndex ? value : s)),
+        },
+      },
+    }));
+  }, []);
+  const setPeriod = useCallback((periodId, field, value) => {
+    setData((d) => ({
+      ...d,
+      schedule: {
+        ...d.schedule,
+        periods: d.schedule.periods.map((p) => (p.id === periodId ? { ...p, [field]: value } : p)),
+      },
+    }));
+  }, []);
+  const addPeriod = useCallback(() => {
+    setData((d) => {
+      const last = d.schedule.periods[d.schedule.periods.length - 1];
+      const start = last ? last.end : "15:00";
+      const endMin = Math.min(23 * 60 + 59, (Number(start.split(":")[0]) * 60 + Number(start.split(":")[1])) + 50);
+      const end = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+      const nextNum = d.schedule.periods.filter((p) => p.kind === "class").length + 1;
+      return {
+        ...d,
+        schedule: {
+          ...d.schedule,
+          periods: [...d.schedule.periods, { id: uid(), label: "Period " + nextNum, start, end, kind: "class" }],
+          days: Object.fromEntries(Object.entries(d.schedule.days).map(([k, v]) => [k, [...v, ""]])),
+        },
+      };
+    });
+  }, []);
+  const removePeriod = useCallback((periodId) => {
+    setData((d) => {
+      const idx = d.schedule.periods.findIndex((p) => p.id === periodId);
+      if (idx < 0) return d;
+      return {
+        ...d,
+        schedule: {
+          ...d.schedule,
+          periods: d.schedule.periods.filter((p) => p.id !== periodId),
+          days: Object.fromEntries(
+            Object.entries(d.schedule.days).map(([k, v]) => [k, v.filter((_, i) => i !== idx)])
+          ),
+        },
+      };
+    });
+  }, []);
+  const resetSchedule = useCallback(() => {
+    if (!confirm("Reset the school schedule to the default template?")) return;
+    setData((d) => ({ ...d, schedule: defaultSchedule() }));
+  }, []);
+
   /* ---------- Import / Export ---------- */
   const exportData = useCallback(() => {
     const blob = new Blob([JSON.stringify(dataRef.current, null, 2)], { type: "application/json" });
@@ -242,11 +299,8 @@ export function DataProvider({ children }) {
     r.onload = () => {
       try {
         const d = JSON.parse(r.result);
-        if (d.classes) {
-          if (!d.semesters) d.semesters = [];
-          d.semesters.forEach(migrateSem);
-          setData(d);
-        } else alert("Invalid file.");
+        if (d.classes) setData(migrateData(d));
+        else alert("Invalid file.");
       } catch (err) {
         alert("Could not read file.");
       }
@@ -270,6 +324,11 @@ export function DataProvider({ children }) {
     removeSemClass,
     setSemClass,
     togglePass,
+    setDaySubject,
+    setPeriod,
+    addPeriod,
+    removePeriod,
+    resetSchedule,
     exportData,
     importData,
     sync,

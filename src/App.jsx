@@ -4,6 +4,7 @@ import Header from "./components/Header";
 import Drawer from "./components/Drawer";
 import { DataProvider } from "./context/DataContext";
 import Landing from "./views/Landing";
+import Home from "./views/Home";
 import CurrentSemester from "./views/CurrentSemester";
 import Upcoming from "./views/Upcoming";
 import Calculator from "./views/Calculator";
@@ -11,6 +12,7 @@ import PreviousSemesters from "./views/PreviousSemesters";
 import CloudSync from "./views/CloudSync";
 
 const VIEWS = {
+  home: Home,
   current: CurrentSemester,
   upcoming: Upcoming,
   calc: Calculator,
@@ -20,7 +22,7 @@ const VIEWS = {
 
 function AppShell() {
   const [showLanding, setShowLanding] = useState(true);
-  const [view, setView] = useState("current");
+  const [view, setView] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
 
   const navigate = (name) => {
