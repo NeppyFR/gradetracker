@@ -939,15 +939,16 @@ td input {
   border-radius: var(--radius);
   background: var(--panel);
 }
-.week-grid {
+/* Time-axis week calendar: every day keeps its own hours. */
+.week-cal {
   display: grid;
   min-width: 560px;
 }
-.wg-corner {
+.wc-corner {
   background: var(--panel);
   border-bottom: 1px solid var(--line);
 }
-.wg-day {
+.wc-head {
   font-size: 11px;
   font-weight: 650;
   text-transform: uppercase;
@@ -958,60 +959,153 @@ td input {
   border-bottom: 1px solid var(--line);
   border-left: 1px solid var(--line);
 }
-.wg-day.today {
+.wc-head.today {
   color: var(--purple2);
   background: var(--accent-soft);
 }
-.wg-time {
-  font-size: 10.5px;
+.wc-gutter {
+  position: relative;
+}
+.wc-hour {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+  font-size: 10px;
   color: var(--faint);
-  padding: 8px 6px;
-  border-bottom: 1px solid rgba(38, 38, 41, 0.55);
   font-variant-numeric: tabular-nums;
-  display: flex;
-  align-items: center;
-}
-.wg-cell {
-  font-size: 12px;
-  padding: 8px 8px;
-  border-bottom: 1px solid rgba(38, 38, 41, 0.55);
-  border-left: 1px solid rgba(38, 38, 41, 0.55);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text);
 }
-.wg-cell.free {
-  color: var(--faint);
+.wc-col {
+  position: relative;
+  border-left: 1px solid rgba(38, 38, 41, 0.55);
 }
-.wg-cell.brk {
-  color: var(--faint);
+.wc-col.today {
+  background: rgba(139, 124, 246, 0.05);
+}
+.wc-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(38, 38, 41, 0.55);
+}
+.wc-off {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
+  text-align: center;
   font-size: 11px;
   font-style: italic;
+  color: var(--faint);
+}
+.wc-block {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  border-radius: 7px;
+  padding: 3px 6px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(139, 124, 246, 0.28);
+}
+.wc-block.break {
   background: repeating-linear-gradient(
     45deg,
     transparent,
     transparent 7px,
-    rgba(255, 255, 255, 0.02) 7px,
-    rgba(255, 255, 255, 0.02) 14px
+    rgba(255, 255, 255, 0.03) 7px,
+    rgba(255, 255, 255, 0.03) 14px
   );
+  border: 1px dashed var(--line);
 }
-.wg-cell.today {
-  background: var(--accent-soft);
+.wc-block.free {
+  background: transparent;
+  border: 1px dashed var(--line);
 }
-.wg-cell.today.free {
-  background: rgba(139, 124, 246, 0.06);
+.wc-subj {
+  font-size: 11.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wc-block.break .wc-subj,
+.wc-block.free .wc-subj {
+  color: var(--faint);
+  font-style: italic;
+}
+.wc-when {
+  font-size: 10px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- schedule editor ---------- */
 .sched-editor {
   margin-top: 18px;
 }
+.se-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.se-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.se-tab:hover {
+  color: var(--text);
+}
+.se-tab.on {
+  border-color: rgba(139, 124, 246, 0.45);
+  background: var(--accent-soft);
+  color: var(--purple2);
+}
+.se-tab.empty {
+  opacity: 0.6;
+}
+.se-tab-count {
+  font-size: 10px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.se-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.se-day-name {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+}
+.se-day-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .se-periods {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 .se-period {
   display: flex;
@@ -1022,23 +1116,19 @@ td input {
 .se-period input[type="time"] {
   width: 118px;
 }
-.se-days {
+.se-label {
+  width: 104px;
+}
+.se-subject {
+  width: 150px;
+}
+.se-add {
   display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.se-day-name {
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-.se-day-inputs {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 6px;
+  gap: 8px;
+  margin-top: 2px;
 }
 .se-break {
+  width: 150px;
   font-size: 11.5px;
   color: var(--faint);
   display: flex;
@@ -1047,4 +1137,5 @@ td input {
   border: 1px dashed var(--line);
   border-radius: 8px;
   font-style: italic;
+  padding: 7px 0;
 }

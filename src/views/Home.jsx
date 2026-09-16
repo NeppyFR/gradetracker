@@ -4,13 +4,16 @@ import { useData } from "../context/DataContext";
 import { fmt, fmtDate, overallAvg, ungraded } from "../lib/math";
 import {
   DAY_NAMES,
-  WEEKDAYS,
+  ORDERED_DAYS,
   daySnapshot,
   dayKey,
   fmtDur,
+  fmtHour,
   fmtTime,
   nextSchoolDay,
+  rowsForDay,
   toMin,
+  visibleDays,
 } from "../lib/schedule";
 
 function greeting(h) {
@@ -154,10 +157,13 @@ export default function Home() {
 
       <div className="section-head" style={{ marginTop: 26 }}>
         <h2 className="section-title">This week</h2>
+        <button className="btn ghost sm" onClick={() => setEditing((e) => !e)}>
+          {editing ? "Done" : "Edit schedule"}
+        </button>
       </div>
       <WeekGrid schedule={data.schedule} todayKey={dayKey(now)} />
 
-      {editing && <ScheduleEditor />}
+      {editing && <ScheduleEditor initialDay={snap.key} />}
     </section>
   );
 }
@@ -287,55 +293,83 @@ function Timeline({ snap }) {
   );
 }
 
+const WEEK_PX_PER_MIN = 1.05;
+
+// Each day is drawn on a shared time axis, so days that start later, end
+// earlier, or use different period lengths line up honestly against each other.
 function WeekGrid({ schedule, todayKey }) {
+  const days = visibleDays(schedule);
+  const columns = days.map((d) => rowsForDay(schedule, d) || []);
+  const all = columns.flat();
+
+  if (all.length === 0) {
+    return (
+      <div className="card empty" style={{ padding: 16 }}>
+        No periods yet. Hit “Edit schedule” to build your week.
+      </div>
+    );
+  }
+
+  const start = Math.floor(Math.min(...all.map((r) => toMin(r.start))) / 60) * 60;
+  const end = Math.ceil(Math.max(...all.map((r) => toMin(r.end))) / 60) * 60;
+  const height = Math.max(120, (end - start) * WEEK_PX_PER_MIN);
+  const hours = [];
+  for (let m = start; m <= end; m += 60) hours.push(m);
+
   return (
     <div className="week-scroll">
-      <div className="week-grid" style={{ gridTemplateColumns: `72px repeat(${WEEKDAYS.length}, minmax(96px, 1fr))` }}>
-        <div className="wg-corner" />
-        {WEEKDAYS.map((d) => (
-          <div key={d} className={"wg-day" + (d === todayKey ? " today" : "")}>
+      <div
+        className="week-cal"
+        style={{ gridTemplateColumns: `52px repeat(${days.length}, minmax(104px, 1fr))` }}
+      >
+        <div className="wc-corner" />
+        {days.map((d) => (
+          <div key={d} className={"wc-head" + (d === todayKey ? " today" : "")}>
             {d}
           </div>
         ))}
-        {schedule.periods.map((p, pi) => (
-          <WeekRow key={p.id} schedule={schedule} period={p} pi={pi} todayKey={todayKey} />
+
+        <div className="wc-gutter" style={{ height }}>
+          {hours.map((m) => (
+            <span key={m} className="wc-hour" style={{ top: (m - start) * WEEK_PX_PER_MIN }}>
+              {fmtHour(m)}
+            </span>
+          ))}
+        </div>
+
+        {days.map((d, di) => (
+          <div key={d} className={"wc-col" + (d === todayKey ? " today" : "")} style={{ height }}>
+            {hours.map((m) => (
+              <div key={m} className="wc-line" style={{ top: (m - start) * WEEK_PX_PER_MIN }} />
+            ))}
+            {columns[di].length === 0 && <span className="wc-off">Day off</span>}
+            {columns[di].map((r) => {
+              const top = (toMin(r.start) - start) * WEEK_PX_PER_MIN;
+              const h = Math.max(16, (toMin(r.end) - toMin(r.start)) * WEEK_PX_PER_MIN);
+              const name = r.kind === "break" ? r.label : r.subject;
+              return (
+                <div
+                  key={r.id}
+                  className={"wc-block " + r.kind + (!name ? " free" : "")}
+                  style={{ top, height: h }}
+                  title={`${name || "Free period"} · ${fmtTime(r.start)}–${fmtTime(r.end)}`}
+                >
+                  <span className="wc-subj">{name || "Free"}</span>
+                  {h > 34 && <span className="wc-when">{fmtTime(r.start)}</span>}
+                </div>
+              );
+            })}
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
-function WeekRow({ schedule, period, pi, todayKey }) {
-  return (
-    <>
-      <div className="wg-time">
-        <span>{fmtTime(period.start)}</span>
-      </div>
-      {WEEKDAYS.map((d) => {
-        const subj = (schedule.days[d] || [])[pi] || "";
-        const isBreak = period.kind === "break";
-        return (
-          <div
-            key={d}
-            className={
-              "wg-cell" +
-              (isBreak ? " brk" : "") +
-              (!isBreak && !subj ? " free" : "") +
-              (d === todayKey ? " today" : "")
-            }
-            title={subj || (isBreak ? period.label : "Free")}
-          >
-            {isBreak ? period.label : subj || "—"}
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
-function ScheduleEditor() {
-  const { data, setPeriod, addPeriod, removePeriod, setDaySubject, resetSchedule } = useData();
-  const s = data.schedule;
+function ScheduleEditor({ initialDay }) {
+  const { data, setDayPeriod, addDayPeriod, removeDayPeriod, clearDay, copyDay, resetSchedule } = useData();
+  const [day, setDay] = useState(() => (ORDERED_DAYS.includes(initialDay) ? initialDay : "Mon"));
+  const periods = data.schedule.days[day] || [];
 
   return (
     <div className="card sched-editor">
@@ -346,56 +380,98 @@ function ScheduleEditor() {
         </button>
       </div>
 
+      <div className="se-tabs">
+        {ORDERED_DAYS.map((d) => {
+          const count = (data.schedule.days[d] || []).length;
+          return (
+            <button
+              key={d}
+              className={"se-tab" + (d === day ? " on" : "") + (count ? "" : " empty")}
+              onClick={() => setDay(d)}
+            >
+              {d}
+              <span className="se-tab-count">{count || "—"}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="se-day-head">
+        <div className="se-day-name">{DAY_NAMES[day]}</div>
+        <div className="se-day-tools">
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) copyDay(e.target.value, day);
+            }}
+          >
+            <option value="">Copy from…</option>
+            {ORDERED_DAYS.filter((d) => d !== day && (data.schedule.days[d] || []).length > 0).map((d) => (
+              <option key={d} value={d}>
+                {DAY_NAMES[d]}
+              </option>
+            ))}
+          </select>
+          {periods.length > 0 && (
+            <button className="btn ghost sm" onClick={() => clearDay(day)}>
+              Clear day
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="se-periods">
-        {s.periods.map((p) => (
+        {periods.length === 0 && (
+          <div className="hint">Nothing scheduled on {DAY_NAMES[day]} — it counts as a day off.</div>
+        )}
+        {periods.map((p) => (
           <div key={p.id} className="se-period">
-            <select value={p.kind} onChange={(e) => setPeriod(p.id, "kind", e.target.value)}>
+            <select value={p.kind} onChange={(e) => setDayPeriod(day, p.id, "kind", e.target.value)}>
               <option value="class">Class</option>
               <option value="break">Break</option>
             </select>
             <input
               value={p.label}
-              onChange={(e) => setPeriod(p.id, "label", e.target.value)}
+              onChange={(e) => setDayPeriod(day, p.id, "label", e.target.value)}
               placeholder="Label"
-              style={{ width: 110 }}
+              className="se-label"
             />
-            <input type="time" value={p.start} onChange={(e) => setPeriod(p.id, "start", e.target.value)} />
+            {p.kind === "class" ? (
+              <input
+                value={p.subject}
+                onChange={(e) => setDayPeriod(day, p.id, "subject", e.target.value)}
+                placeholder="Subject"
+                className="se-subject"
+              />
+            ) : (
+              <div className="se-break">no subject</div>
+            )}
+            <input
+              type="time"
+              value={p.start}
+              onChange={(e) => setDayPeriod(day, p.id, "start", e.target.value)}
+            />
             <span className="muted">to</span>
-            <input type="time" value={p.end} onChange={(e) => setPeriod(p.id, "end", e.target.value)} />
-            <button className="btn danger sm" onClick={() => removePeriod(p.id)}>
+            <input type="time" value={p.end} onChange={(e) => setDayPeriod(day, p.id, "end", e.target.value)} />
+            <button className="btn danger sm" onClick={() => removeDayPeriod(day, p.id)}>
               ✕
             </button>
           </div>
         ))}
-        <button className="btn ghost sm" onClick={addPeriod}>
-          + Add period
-        </button>
+        <div className="se-add">
+          <button className="btn ghost sm" onClick={() => addDayPeriod(day, "class")}>
+            + Class period
+          </button>
+          <button className="btn ghost sm" onClick={() => addDayPeriod(day, "break")}>
+            + Break
+          </button>
+        </div>
       </div>
 
-      <div className="se-days">
-        {WEEKDAYS.map((d) => (
-          <div key={d} className="se-day">
-            <div className="se-day-name">{DAY_NAMES[d]}</div>
-            <div className="se-day-inputs">
-              {s.periods.map((p, pi) =>
-                p.kind === "break" ? (
-                  <div key={p.id} className="se-break">
-                    {p.label}
-                  </div>
-                ) : (
-                  <input
-                    key={p.id}
-                    value={(s.days[d] || [])[pi] || ""}
-                    placeholder={p.label}
-                    onChange={(e) => setDaySubject(d, pi, e.target.value)}
-                  />
-                )
-              )}
-            </div>
-          </div>
-        ))}
+      <div className="hint">
+        Times are per day — {DAY_NAMES[day]} can start, end and run on its own hours. Changes save instantly and
+        sync with the rest of your data.
       </div>
-      <div className="hint">Changes save instantly and sync with the rest of your data.</div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { loadData, saveData, uid, migrateData } from "../lib/storage";
-import { defaultSchedule } from "../lib/schedule";
+import { DAY_NAMES, defaultSchedule, fromMin, toMin } from "../lib/schedule";
 import { gistFetch, GIST_FILE, isConnected, loadSync, saveSync } from "../lib/sync";
 
 const DataContext = createContext(null);
@@ -226,61 +226,99 @@ export function DataProvider({ children }) {
     }));
   }, []);
 
-  /* ---------- School schedule ---------- */
-  const setDaySubject = useCallback((dayKey, periodIndex, value) => {
+  /* ---------- School schedule ----------
+     Every weekday owns its own period list, so both the times and the
+     subjects can differ from day to day. */
+  const patchDay = useCallback((dayKey, fn) => {
     setData((d) => ({
       ...d,
       schedule: {
         ...d.schedule,
-        days: {
-          ...d.schedule.days,
-          [dayKey]: d.schedule.days[dayKey].map((s, i) => (i === periodIndex ? value : s)),
-        },
+        days: { ...d.schedule.days, [dayKey]: fn(d.schedule.days[dayKey] || []) },
       },
     }));
   }, []);
-  const setPeriod = useCallback((periodId, field, value) => {
-    setData((d) => ({
-      ...d,
-      schedule: {
-        ...d.schedule,
-        periods: d.schedule.periods.map((p) => (p.id === periodId ? { ...p, [field]: value } : p)),
-      },
-    }));
-  }, []);
-  const addPeriod = useCallback(() => {
-    setData((d) => {
-      const last = d.schedule.periods[d.schedule.periods.length - 1];
-      const start = last ? last.end : "15:00";
-      const endMin = Math.min(23 * 60 + 59, (Number(start.split(":")[0]) * 60 + Number(start.split(":")[1])) + 50);
-      const end = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
-      const nextNum = d.schedule.periods.filter((p) => p.kind === "class").length + 1;
-      return {
-        ...d,
-        schedule: {
-          ...d.schedule,
-          periods: [...d.schedule.periods, { id: uid(), label: "Period " + nextNum, start, end, kind: "class" }],
-          days: Object.fromEntries(Object.entries(d.schedule.days).map(([k, v]) => [k, [...v, ""]])),
-        },
-      };
-    });
-  }, []);
-  const removePeriod = useCallback((periodId) => {
-    setData((d) => {
-      const idx = d.schedule.periods.findIndex((p) => p.id === periodId);
-      if (idx < 0) return d;
-      return {
-        ...d,
-        schedule: {
-          ...d.schedule,
-          periods: d.schedule.periods.filter((p) => p.id !== periodId),
-          days: Object.fromEntries(
-            Object.entries(d.schedule.days).map(([k, v]) => [k, v.filter((_, i) => i !== idx)])
-          ),
-        },
-      };
-    });
-  }, []);
+
+  const setDayPeriod = useCallback(
+    (dayKey, periodId, field, value) => {
+      patchDay(dayKey, (periods) =>
+        periods.map((p) => {
+          if (p.id !== periodId) return p;
+          const next = { ...p, [field]: value };
+          // A break has no subject; keep the record clean when switching kinds.
+          if (field === "kind" && value === "break") next.subject = "";
+          // Never let a period end before it starts: dragging the start time
+          // carries the end along, and an early end snaps to a 5-minute floor.
+          if (field === "start" && value) {
+            const shift = toMin(value) - toMin(p.start);
+            next.end = fromMin(Math.min(24 * 60 - 1, Math.max(toMin(value) + 5, toMin(p.end) + shift)));
+          }
+          if (field === "end" && value && toMin(value) <= toMin(next.start)) {
+            next.end = fromMin(Math.min(24 * 60 - 1, toMin(next.start) + 5));
+          }
+          return next;
+        })
+      );
+    },
+    [patchDay]
+  );
+
+  const addDayPeriod = useCallback(
+    (dayKey, kind = "class") => {
+      patchDay(dayKey, (periods) => {
+        const lastEnd = periods.length ? Math.max(...periods.map((p) => toMin(p.end))) : 8 * 60 + 30;
+        const len = kind === "break" ? 20 : 50;
+        const start = Math.min(23 * 60 + 50, lastEnd);
+        const nextNum = periods.filter((p) => p.kind === "class").length + 1;
+        return [
+          ...periods,
+          {
+            id: uid(),
+            label: kind === "break" ? "Break" : "Period " + nextNum,
+            start: fromMin(start),
+            end: fromMin(Math.min(23 * 60 + 59, start + len)),
+            kind,
+            subject: "",
+          },
+        ];
+      });
+    },
+    [patchDay]
+  );
+
+  const removeDayPeriod = useCallback(
+    (dayKey, periodId) => {
+      patchDay(dayKey, (periods) => periods.filter((p) => p.id !== periodId));
+    },
+    [patchDay]
+  );
+
+  const clearDay = useCallback(
+    (dayKey) => {
+      if (!confirm(`Clear every period on ${DAY_NAMES[dayKey]}? It will count as a day off.`)) return;
+      patchDay(dayKey, () => []);
+    },
+    [patchDay]
+  );
+
+  // Copy one day's whole layout (times + subjects) onto another day.
+  const copyDay = useCallback(
+    (fromKey, toKey) => {
+      if (fromKey === toKey) return;
+      setData((d) => {
+        const src = d.schedule.days[fromKey] || [];
+        return {
+          ...d,
+          schedule: {
+            ...d.schedule,
+            days: { ...d.schedule.days, [toKey]: src.map((p) => ({ ...p, id: uid() })) },
+          },
+        };
+      });
+    },
+    []
+  );
+
   const resetSchedule = useCallback(() => {
     if (!confirm("Reset the school schedule to the default template?")) return;
     setData((d) => ({ ...d, schedule: defaultSchedule() }));
@@ -324,10 +362,11 @@ export function DataProvider({ children }) {
     removeSemClass,
     setSemClass,
     togglePass,
-    setDaySubject,
-    setPeriod,
-    addPeriod,
-    removePeriod,
+    setDayPeriod,
+    addDayPeriod,
+    removeDayPeriod,
+    clearDay,
+    copyDay,
     resetSchedule,
     exportData,
     importData,
