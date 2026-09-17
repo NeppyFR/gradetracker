@@ -80,14 +80,18 @@ export default function CloudSync() {
             Copy the <b>Gist ID</b> — it's the long code at the end of the gist's URL — and paste it above.
           </li>
           <li>
-            Go to <code>github.com/settings/tokens</code> → <b>Fine-grained tokens</b> → <b>Generate new token</b>. Under{" "}
-            <b>Account permissions</b> set <b>Gists → Read and write</b>. Generate it and copy the token.
+            Go to <code>github.com/settings/tokens</code> → <b>Tokens (classic)</b> → <b>Generate new token (classic)</b>,
+            tick the <b>gist</b> scope, and copy the token. It'll start with <code>ghp_</code>.
           </li>
           <li>
             Paste the token above and hit <b>Connect &amp; sync</b>. On any new device, just paste the same two values
             once.
           </li>
         </ol>
+        <div className="hint">
+          Getting a 403? Fine-grained tokens are unreliable against the Gists API even with{" "}
+          <b>Gists → Read and write</b> set. A classic token with the <b>gist</b> scope is the path that works.
+        </div>
       </div>
     </section>
   );
