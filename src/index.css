@@ -724,6 +724,27 @@ td input {
     grid-template-columns: 1fr;
   }
 }
+/* Today sits beside the week grid, both on the same vertical time scale. */
+.home-top {
+  display: grid;
+  grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 26px;
+}
+@media (max-width: 1000px) {
+  .home-top {
+    grid-template-columns: 1fr;
+  }
+}
+/* Only one column's heading carries a button; without a floor, its extra
+   height would push that panel down and break the shared axis. */
+.home-top .section-head {
+  min-height: 24px;
+}
+.home-exams {
+  margin-top: 26px;
+}
 .home-col {
   min-width: 0;
 }
@@ -743,16 +764,37 @@ td input {
 
 /* ---------- timeline ---------- */
 .timeline-card {
-  padding: 14px;
+  padding: 0;
+  overflow: hidden;
+}
+/* Same metrics as .wc-head, so the two panels' bodies start level. */
+.tl-head {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--purple2);
+  background: var(--accent-soft);
+  text-align: center;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--line);
 }
 .timeline {
   position: relative;
-  margin: 4px 0 8px;
+  margin: 0;
 }
-.tl-block {
+/* Hour rules matching the week grid's, so the two panels read as one axis. */
+.tl-line {
   position: absolute;
   left: 0;
   right: 0;
+  height: 1px;
+  background: rgba(38, 38, 41, 0.55);
+}
+.tl-block {
+  position: absolute;
+  left: 8px;
+  right: 8px;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: var(--panel2);
@@ -835,8 +877,8 @@ td input {
 }
 .tl-now {
   position: absolute;
-  left: -4px;
-  right: -4px;
+  left: 0;
+  right: 0;
   height: 0;
   border-top: 1.5px dashed var(--purple2);
   display: flex;
@@ -868,7 +910,8 @@ td input {
   align-items: center;
   gap: 10px;
   font-size: 11.5px;
-  margin-top: 4px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
 }
 .day-bar-track {
   flex: 1;
@@ -934,7 +977,10 @@ td input {
 
 /* ---------- week grid ---------- */
 .week-scroll {
+  /* `overflow-x: auto` alone computes overflow-y to auto too, which produced a
+     vertical scrollbar over a couple of rounded-off pixels. Pin it shut. */
   overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--panel);
@@ -943,6 +989,9 @@ td input {
 .week-cal {
   display: grid;
   min-width: 560px;
+  /* The last hour label is centred on the final gridline, so half of it sits
+     below the grid. Leave room rather than letting it get clipped. */
+  padding-bottom: 8px;
 }
 .wc-corner {
   background: var(--panel);

@@ -55,6 +55,7 @@ export default function Home() {
 
   const snap = useMemo(() => daySnapshot(data.schedule, now), [data.schedule, now]);
   const upNext = nextSchoolDay(data.schedule, now);
+  const axis = useMemo(() => weekAxis(data.schedule), [data.schedule]);
 
   return (
     <section>
@@ -83,18 +84,13 @@ export default function Home() {
         <StatChip label={liveLabel(snap)} value={liveValue(snap)} sub={liveSub(snap)} accent />
       </div>
 
-      <div className="home-grid">
+      <div className="home-top">
         <div className="home-col">
           <div className="section-head">
             <h2 className="section-title">Today &middot; {DAY_NAMES[snap.key]}</h2>
-            {snap.school && (
-              <button className="btn ghost sm" onClick={() => setEditing((e) => !e)}>
-                {editing ? "Done" : "Edit schedule"}
-              </button>
-            )}
           </div>
-          {snap.school ? (
-            <Timeline snap={snap} />
+          {snap.school && axis ? (
+            <Timeline snap={snap} axis={axis} />
           ) : (
             <div className="card no-school">
               <div className="no-school-emoji">🏖️</div>
@@ -117,53 +113,55 @@ export default function Home() {
 
         <div className="home-col">
           <div className="section-head">
-            <h2 className="section-title">Upcoming exams</h2>
+            <h2 className="section-title">This week</h2>
+            <button className="btn ghost sm" onClick={() => setEditing((e) => !e)}>
+              {editing ? "Done" : "Edit schedule"}
+            </button>
           </div>
-          {exams.length === 0 ? (
-            <div className="card empty" style={{ padding: 16 }}>
-              Nothing upcoming. Add an exam with a blank score in Current Semester to see it here.
-            </div>
-          ) : (
-            <div className="card" style={{ padding: 8 }}>
-              <AnimatePresence initial={false}>
-                {exams.slice(0, 6).map((i) => {
-                  const meta = examDays(i, today);
-                  return (
-                    <motion.div
-                      key={i.id}
-                      className="exam-row"
-                      layout
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.15 }}
-                    >
-                      <div className="exam-main">
-                        <span className="exam-name">{i.name || "(unnamed)"}</span>
-                        <span className="exam-cls">{i.cls}</span>
-                      </div>
-                      <div className="exam-when">
-                        <span>{i.date ? fmtDate(i.date).replace(/,.*/, "") : "no date"}</span>
-                        <span className={"days " + meta.cls}>{meta.txt}</span>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          )}
+          <WeekGrid schedule={data.schedule} todayKey={dayKey(now)} axis={axis} />
         </div>
       </div>
 
-      <div className="section-head" style={{ marginTop: 26 }}>
-        <h2 className="section-title">This week</h2>
-        <button className="btn ghost sm" onClick={() => setEditing((e) => !e)}>
-          {editing ? "Done" : "Edit schedule"}
-        </button>
-      </div>
-      <WeekGrid schedule={data.schedule} todayKey={dayKey(now)} />
-
       {editing && <ScheduleEditor initialDay={snap.key} />}
+
+      <div className="home-exams">
+        <div className="section-head">
+          <h2 className="section-title">Upcoming exams</h2>
+        </div>
+        {exams.length === 0 ? (
+          <div className="card empty" style={{ padding: 16 }}>
+            Nothing upcoming. Add an exam with a blank score in Current Semester to see it here.
+          </div>
+        ) : (
+          <div className="card" style={{ padding: 8 }}>
+            <AnimatePresence initial={false}>
+              {exams.slice(0, 6).map((i) => {
+                const meta = examDays(i, today);
+                return (
+                  <motion.div
+                    key={i.id}
+                    className="exam-row"
+                    layout
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <div className="exam-main">
+                      <span className="exam-name">{i.name || "(unnamed)"}</span>
+                      <span className="exam-cls">{i.cls}</span>
+                    </div>
+                    <div className="exam-when">
+                      <span>{i.date ? fmtDate(i.date).replace(/,.*/, "") : "no date"}</span>
+                      <span className={"days " + meta.cls}>{meta.txt}</span>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
@@ -212,17 +210,35 @@ function examDays(i, today) {
   return { cls: "", txt: `in ${diff}d` };
 }
 
-const PX_PER_MIN = 2.7;
+// One vertical scale for both panels, so a 10:15 class sits at the same
+// height in Today as it does in the week grid beside it.
+const PX_PER_MIN = 1.35;
 
-function Timeline({ snap }) {
-  const { rows, dayStart, dayEnd, nowMin, phase, currentIdx } = snap;
-  const span = Math.max(1, dayEnd - dayStart);
-  const height = span * PX_PER_MIN;
-  const nowTop = (Math.min(dayEnd, Math.max(dayStart, nowMin)) - dayStart) * PX_PER_MIN;
+function weekAxis(schedule) {
+  const days = visibleDays(schedule);
+  const all = days.flatMap((d) => rowsForDay(schedule, d) || []);
+  if (all.length === 0) return null;
+  const start = Math.floor(Math.min(...all.map((r) => toMin(r.start))) / 60) * 60;
+  const end = Math.ceil(Math.max(...all.map((r) => toMin(r.end))) / 60) * 60;
+  const hours = [];
+  for (let m = start; m <= end; m += 60) hours.push(m);
+  return { days, start, end, hours, height: Math.max(120, (end - start) * PX_PER_MIN) };
+}
+
+function Timeline({ snap, axis }) {
+  const { rows, nowMin, phase, currentIdx } = snap;
+  const { start: dayStart, height } = axis;
+  const nowTop = (Math.min(axis.end, Math.max(dayStart, nowMin)) - dayStart) * PX_PER_MIN;
 
   return (
     <div className="card timeline-card">
+      {/* Mirrors the week grid's day-header row so both bodies start at the
+          same height and the two panels line up across the gap. */}
+      <div className="tl-head">{snap.key}</div>
       <div className="timeline" style={{ height }}>
+        {axis.hours.map((m) => (
+          <div key={m} className="tl-line" style={{ top: (m - dayStart) * PX_PER_MIN }} />
+        ))}
         {rows.map((r, i) => {
           const top = (toMin(r.start) - dayStart) * PX_PER_MIN;
           const h = (toMin(r.end) - toMin(r.start)) * PX_PER_MIN;
@@ -293,16 +309,10 @@ function Timeline({ snap }) {
   );
 }
 
-const WEEK_PX_PER_MIN = 1.05;
-
 // Each day is drawn on a shared time axis, so days that start later, end
 // earlier, or use different period lengths line up honestly against each other.
-function WeekGrid({ schedule, todayKey }) {
-  const days = visibleDays(schedule);
-  const columns = days.map((d) => rowsForDay(schedule, d) || []);
-  const all = columns.flat();
-
-  if (all.length === 0) {
+function WeekGrid({ schedule, todayKey, axis }) {
+  if (!axis) {
     return (
       <div className="card empty" style={{ padding: 16 }}>
         No periods yet. Hit “Edit schedule” to build your week.
@@ -310,11 +320,8 @@ function WeekGrid({ schedule, todayKey }) {
     );
   }
 
-  const start = Math.floor(Math.min(...all.map((r) => toMin(r.start))) / 60) * 60;
-  const end = Math.ceil(Math.max(...all.map((r) => toMin(r.end))) / 60) * 60;
-  const height = Math.max(120, (end - start) * WEEK_PX_PER_MIN);
-  const hours = [];
-  for (let m = start; m <= end; m += 60) hours.push(m);
+  const { days, start, hours, height } = axis;
+  const columns = days.map((d) => rowsForDay(schedule, d) || []);
 
   return (
     <div className="week-scroll">
@@ -331,7 +338,7 @@ function WeekGrid({ schedule, todayKey }) {
 
         <div className="wc-gutter" style={{ height }}>
           {hours.map((m) => (
-            <span key={m} className="wc-hour" style={{ top: (m - start) * WEEK_PX_PER_MIN }}>
+            <span key={m} className="wc-hour" style={{ top: (m - start) * PX_PER_MIN }}>
               {fmtHour(m)}
             </span>
           ))}
@@ -340,12 +347,12 @@ function WeekGrid({ schedule, todayKey }) {
         {days.map((d, di) => (
           <div key={d} className={"wc-col" + (d === todayKey ? " today" : "")} style={{ height }}>
             {hours.map((m) => (
-              <div key={m} className="wc-line" style={{ top: (m - start) * WEEK_PX_PER_MIN }} />
+              <div key={m} className="wc-line" style={{ top: (m - start) * PX_PER_MIN }} />
             ))}
             {columns[di].length === 0 && <span className="wc-off">Day off</span>}
             {columns[di].map((r) => {
-              const top = (toMin(r.start) - start) * WEEK_PX_PER_MIN;
-              const h = Math.max(16, (toMin(r.end) - toMin(r.start)) * WEEK_PX_PER_MIN);
+              const top = (toMin(r.start) - start) * PX_PER_MIN;
+              const h = Math.max(16, (toMin(r.end) - toMin(r.start)) * PX_PER_MIN);
               const name = r.kind === "break" ? r.label : r.subject;
               return (
                 <div
