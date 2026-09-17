@@ -48,8 +48,20 @@ export async function gistFetch(sync, method, body) {
     // each is the opposite of the other — wait, versus go change your token.
     if (res.headers.get("x-ratelimit-remaining") === "0") {
       const reset = Number(res.headers.get("x-ratelimit-reset"));
-      const when = reset ? new Date(reset * 1000).toLocaleTimeString() : "shortly";
-      throw new Error(`Rate limited (403). GitHub will let you back in at ${when}.`);
+      const when = reset ? `at ${new Date(reset * 1000).toLocaleTimeString()}` : "shortly";
+      // GitHub allows 60 requests an hour signed out and 5000 with a token, so
+      // a tiny ceiling here means the token never took effect at all — the
+      // rate limit is the symptom, not the problem.
+      const limit = Number(res.headers.get("x-ratelimit-limit"));
+      if (limit && limit <= 60) {
+        throw new Error(
+          `Rate limited (403), and GitHub counted you as signed out (${limit} requests/hour instead of 5000). ` +
+            `Your token isn't reaching GitHub — re-enter it on this page. Requests reset ${when}.`
+        );
+      }
+      throw new Error(
+        `Rate limited (403). You've used all ${limit || "your"} requests for this hour; GitHub will let you back in ${when}.`
+      );
     }
     const retry = res.headers.get("retry-after");
     if (retry || /secondary rate limit/i.test(detail)) {
