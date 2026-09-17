@@ -20,7 +20,7 @@ export function isConnected(sync) {
 export async function gistFetch(sync, method, body) {
   const res = await fetch("https://api.github.com/gists/" + encodeURIComponent(sync.gist), {
     method,
-    headers: { Authorization: "Bearer " + sync.token, Accept: "application/vnd.github+json" },
+    headers: { Authorization: "token " + sync.token, Accept: "application/vnd.github+json" },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (res.status === 401) throw new Error("Bad token (401). Check the token has Gists read/write.");
